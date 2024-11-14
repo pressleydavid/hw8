@@ -1,0 +1,154 @@
+---
+title: "hw3.qmd"
+format: html
+editor: visual
+---
+
+# Setup
+
+```{r}
+load("hw2_list.rda")
+```
+
+# Task 1 - Flow Control
+
+## 1. Create a new column in each data frame named `status`
+
+```{r}
+bp_list[["treatment"]]$status <- character(20)
+bp_list[["placebo"]]$status <- character(10)
+```
+
+## 2. Create status values for each data frame
+
+```{r}
+#access data frame for brevity
+trt_df <- bp_list[["treatment"]]
+
+#loop through rows
+for (i in 1:nrow(trt_df)){
+    val <- trt_df$post_bp[i]
+    if(val <= 120){
+        trt_df$status[i] <- "optimal"
+    }
+    else if(120 < val && val <= 130){
+        trt_df$status[i] <- "borderline"
+    }
+    else if(val > 130){
+        trt_df$status[i] <- "high"   
+    }
+    else {
+        print("KABOOM!")
+    }
+}
+bp_list[["treatment"]] <- trt_df
+
+pbo_df <- bp_list[["placebo"]]
+for (i in 1:nrow(pbo_df)){
+    val <- pbo_df$post_bp[i]
+    if(val <= 120){
+        pbo_df$status[i] <- "optimal"
+    }
+    else if(120 < val && val <= 130){
+        pbo_df$status[i] <- "borderline"
+    }
+    else if(val > 130){
+        pbo_df$status[i] <- "high"   
+    }
+    else {
+        print("KABOOM!")
+    }
+}
+bp_list[["placebo"]] <- pbo_df
+
+```
+
+# Task 2 - Write a function
+
+-   takes a list containing 2 data frames as an argument. No default values
+-   takes in an R function that summarizes a numeric column. Default = mean
+-   finds stat of interest, defined by user input for numeric columns (pre, post, and diff) - use \`my_fun \<- get(stat) to get function from quoted string
+-   return values as a named list
+    -   createa vector of names created dynamically based on stat passed
+    -   create vector with actual stat
+    -   assign names() to vector of names
+    -   return List of Data Frames
+-   apply function to list of data frames, without specifying stat
+    -   test against var, sd, min, and max
+
+```{r}
+calculate_stats <- function(bp_list, stat = "mean") {
+    #get `stat` param from function
+    stat_arg <- get(stat)
+    
+    #initialize return list
+    sumstats <- list()
+    
+    # get names
+    for (i in names(bp_list)) {
+        df <- bp_list[[i]]
+        by_trt_stats <-c()
+        
+        # get numeric columns
+        num_vars <- names(df)[sapply(df, is.numeric)]
+        
+        # calculate stats for numeric variables
+        for (j in num_vars) {
+            col_stat <- stat_arg(df[[j]])
+            stat_name <- paste(stat, j, sep = "_")
+            by_trt_stats[stat_name] <- col_stat
+        }
+        
+        # store vector in the list by group name
+        sumstats[[i]] <- as.data.frame(t(by_trt_stats))
+        
+        colnames(sumstats[[i]]) <- c(function(df) {strplit(df[[i]], " ")}(df[[i]]))
+    }
+    
+    # return list of data frames
+    return(sumstats)
+}
+
+#Manual checks
+# bp_list_chk <- bp_list[["treatment"]]
+# mean(bp_list_chk$pre_bp)
+# mean(bp_list_chk$post_bp)
+# mean(bp_list_chk$diff_bp)
+# 
+# bp_list_chk <- bp_list[["placebo"]]
+# mean(bp_list_chk$pre_bp)
+# mean(bp_list_chk$post_bp)
+# mean(bp_list_chk$diff_bp)
+```
+
+## Checks
+
+### Mean (Default)
+
+```{r}
+calculate_stats(bp_list)
+```
+
+### Standard Deviation
+
+```{r}
+calculate_stats(bp_list,"sd")
+```
+
+### Minimums
+
+```{r}
+calculate_stats(bp_list,"min")
+```
+
+### Maximums
+
+```{r}
+calculate_stats(bp_list,"max")
+```
+
+### Variance
+
+```{r}
+calculate_stats(bp_list,"var")
+```

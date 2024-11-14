@@ -1,0 +1,152 @@
+---
+title: "hw4"
+format: html
+knitr:
+  opts_chunk:
+    root.dir: "/Users/david/projects/ncsu/st558/homework/hw4/raw"
+---
+
+# Homework 4
+
+```{r, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(readxl)
+```
+
+# Task 1
+
+## 1. If your working directory is myfolder/homework/, what relative path would you specify to get the file located at myfolder/MyData.csv?
+
+> `../myfolder/MyData.csv`
+
+## 2. What are the major benefits of using R projects
+> - Customization of project specific settings
+> - Ability to debug code using the debugger
+> - addresses separation of concerns by providing isolation between projects
+> - version control integration with R-Studio
+> - reproducibility - all libraries, packages, dependencies are contained within the project
+
+## 3. What is git and what is GitHub?
+> Git is an open source, distributed version control system that tracks changes to files to ensure Good Programming Practice. It provides a programming interface to document changes in files and tracks them over the lifecycle of a project and provides a way to enable collaboration among people.
+
+> GitHub provides a web-based platform that serves as a remote or "hub" for source code management. The remote repository can be accessed over ssh and https file protocols.
+
+## 4. What are the two main differences between a tibble and a data.frame?
+
+> The two main differences between a tibble and a data.frame are:
+>
+> 1. A tibble doesn't do coercion, preserving the data types and placing the responsibility for data types with the human.
+> 2. Tibbles provide a consistent interface when working with the tidyverse that provides         efficiency and quality. Functions of the tidyverse take a tibble as input, and              return a tibble as output. Data frames 
+
+## 5. Rewrite the following nested function call using BaseR’s chaining operator:
+
+     
+```{r, eval=FALSE, echo=TRUE}
+arrange(filter(select(as_tibble(iris), starts_with("Petal"), Species),
+         Petal.Length < 1.55), Species)
+```
+
+### Answer:
+```{r}
+df <- as_tibble(iris) |>
+    select(starts_with("Petal"), Species) |>
+            filter(Petal.Length < 1.55)
+```
+
+
+
+# Task 2 - Reading Delimited Data
+## Glass Data
+1. Read in from URL. Add colnames
+2. Overwrite type variable using `mutate`
+3. subset based on:
+     - Fe < 0.2
+     - type in('tableware','headlamp')
+```{r}
+glass_data <- read_csv("https://www4.stat.ncsu.edu/~online/datasets/glass.data",
+    col_names = c("Id", "RI", "Na", "Mg", "Al", "Si", "K", "Ca", "Ba", "Fe")) |>
+    mutate(glass_type_c = factor(X11, levels = 1:7, 
+                                 labels = c("building_windows_float_processed",
+                                            "building_windows_non_float_processed",
+                                            "vehicle_windows_float_processed",
+                                            "vehicle_windows_non_float_processed",
+                                            "containers",
+                                            "tableware",
+                                            "headlamp"))) |>
+    rename(glass_type_n = X11) |>
+    filter(glass_type_c %in% c("tableware","headlamp") & Fe < 0.2) |>
+    select(glass_type_c, everything())
+
+print(glass_data)
+```
+
+
+## Yeast Data
+1. Read in from URL. Add colnames
+2. remove `seq_name` and `nuc`
+3. add columns for mean and median across numeric vars, by class
+
+```{r}
+yeast_data <- read_table("https://www4.stat.ncsu.edu/~online/datasets/yeast.data",
+                         col_names = c("seq_name","mcg","gvh","alm","mit","erl","pox","vac","nuc",
+                                       "class")) |>
+                select(-seq_name,-nuc) |>
+                group_by(class) |>
+                mutate(across(where(is.numeric),
+                    .fns = list(mean = ~ mean(.x, na.rm = TRUE),
+                                median = ~ median(.x, na.rm = TRUE)),
+                    .names = "{.fn}_{.col}")) |>
+                select(class, contains(c("mean","median")), everything())
+    
+yeast_data
+```
+
+# Task 2: Combining Excel and Delimited Data
+## Red and White Wine
+1. Download and import first sheet
+2. Import second sheet containing variable names. Overwrite colnames
+3. set `type` equal to "white"
+4. Import red wine and overwrite colnames. set `type` equal to "red"
+5. Combine data sets with `bind_rows()`
+6. filter based on:
+     - quality > 6.5
+     - alcohol < 132
+7. Sort descending `quality`
+8. select vars that contain `acid`, `alcohol`, `type`, and `quality`
+9. add mean and standard deviation of `alcohol` by `quality` category
+
+
+```{r}
+
+tibble(read_xlsx(path = "./raw/white-wine.xlsx", sheet="white-wine"))
+
+col_names <- read_xlsx(path = "./raw/white-wine.xlsx", sheet="variables")
+
+white_wine <- tibble(read_xlsx(path = "./raw/white-wine.xlsx", sheet="white-wine")) |>
+                     setNames(col_names$Variables) |>
+                     mutate(type = "white") |>
+                     select(quality, alcohol, type, everything())
+
+white_wine
+
+red_wine <- read_delim("./raw/red-wine.csv", delim = ";") |>
+    setNames(col_names$Variables) |>
+    mutate(type = "red") |>
+    select(quality, alcohol, type, everything())
+
+red_wine
+
+combined_wine <- bind_rows(white_wine, red_wine) |>
+                filter(quality > 6.5 & alcohol <132) |>
+                arrange(desc(quality)) |>
+                select(contains("acid"), alcohol, type, quality) |>
+                group_by(quality) |>
+                mutate(
+                    mean_alcohol = format(mean(alcohol, na.rm = TRUE),nsmall=2),
+                    sd_alcohol = sd(alcohol, na.rm = TRUE)
+                ) |>
+                select(quality, alcohol, type, mean_alcohol, sd_alcohol, everything())
+options(digits = 7)
+print(combined_wine)
+```
+
